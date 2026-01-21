@@ -1,0 +1,40 @@
+{
+  "summary": {
+    "total_tests": 5,
+    "passed_tests": 5,
+    "success_rate": 100.0,
+    "timestamp": "2026-01-21T15:04:26.731949"
+  },
+  "detailed_results": [
+    {
+      "test_name": "API Root",
+      "success": true,
+      "details": "Status: 200, Response: {\n  \"message\": \"ActivateFlow API\"\n}...",
+      "timestamp": "2026-01-21T15:04:26.482136"
+    },
+    {
+      "test_name": "Save Funnel Data",
+      "success": true,
+      "details": "Status: 200, Response: {\n  \"id\": \"f1e41c70-fb00-4301-ae5d-55c0833a4759\",\n  \"revenue_per_activated_user\": 450.0,\n  \"stages\": [\n    {\n      \"stage_name\": \"Signup Completed\",\n      \"users\": 10000,\n      \"avg_time_hours\": 0.0,\n...",
+      "timestamp": "2026-01-21T15:04:26.565238"
+    },
+    {
+      "test_name": "Get Latest Funnel",
+      "success": true,
+      "details": "Status: 200, Response: {\n  \"id\": \"f1e41c70-fb00-4301-ae5d-55c0833a4759\",\n  \"revenue_per_activated_user\": 450.0,\n  \"stages\": [\n    {\n      \"stage_name\": \"Signup Completed\",\n      \"users\": 10000,\n      \"avg_time_hours\": 0.0,\n...",
+      "timestamp": "2026-01-21T15:04:26.612107"
+    },
+    {
+      "test_name": "Recovery Calculation",
+      "success": true,
+      "details": "Status: 200, Response: {\n  \"recovered_users\": 270,\n  \"revenue_recovered\": 121500.0,\n  \"new_conversion_rate\": 115.0\n}...",
+      "timestamp": "2026-01-21T15:04:26.657199"
+    },
+    {
+      "test_name": "Invalid Endpoint",
+      "success": true,
+      "details": "Status: 404, Response: {\n  \"detail\": \"Not Found\"\n}...",
+      "timestamp": "2026-01-21T15:04:26.730307"
+    }
+  ]
+}
