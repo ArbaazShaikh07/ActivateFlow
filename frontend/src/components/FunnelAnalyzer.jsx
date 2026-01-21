@@ -144,8 +144,11 @@ const FunnelAnalyzer = () => {
               <tbody>
                 {stages.map((stage, index) => {
                   const result = calculations?.stageResults.find(r => r.stageIndex === index);
+                  const isLastStage = index === stages.length - 1;
+                  const activationRate = isLastStage && calculations ? calculations.cumulativeActivationRate : null;
+                  
                   return (
-                    <tr key={index} className={worstStage?.stageIndex === index ? "worst-stage" : ""}>
+                    <tr key={index} className={worstStage?.stageIndex === index ? "worst-stage" : isLastStage ? "success-stage" : ""}>
                       <td className="stage-name" data-testid={`stage-name-${index}`}>{stage.stage_name}</td>
                       <td data-testid={`stage-users-${index}`}>
                         <EditableCell
@@ -165,13 +168,26 @@ const FunnelAnalyzer = () => {
                           onSave={(val) => handleCellEdit(index, "target_sla_hours", val)}
                         />
                       </td>
-                      <td className="metric-cell" data-testid={`stage-conversion-${index}`}>{result?.conversionRate || "—"}</td>
-                      <td className="metric-cell" data-testid={`stage-dropoff-${index}`}>{result?.dropoffRate || "—"}</td>
-                      <td className="metric-cell" data-testid={`stage-users-lost-${index}`}>{result?.usersLost.toLocaleString() || "—"}</td>
-                      <td className="metric-cell revenue" data-testid={`stage-revenue-risk-${index}`}>${result?.revenueAtRisk ? parseInt(result.revenueAtRisk).toLocaleString() : "—"}</td>
+                      <td className="metric-cell" data-testid={`stage-conversion-${index}`}>
+                        {isLastStage ? (
+                          <span className="success-metric" title="Overall activation rate">{activationRate}%</span>
+                        ) : (
+                          result?.conversionRate || "—"
+                        )}
+                      </td>
+                      <td className="metric-cell" data-testid={`stage-dropoff-${index}`}>
+                        {isLastStage ? <span className="success-label">ACTIVATED</span> : (result?.dropoffRate || "—")}
+                      </td>
+                      <td className="metric-cell" data-testid={`stage-users-lost-${index}`}>
+                        {isLastStage ? "—" : (result?.usersLost.toLocaleString() || "—")}
+                      </td>
+                      <td className="metric-cell revenue" data-testid={`stage-revenue-risk-${index}`}>
+                        {isLastStage ? "—" : (result?.revenueAtRisk ? `$${parseInt(result.revenueAtRisk).toLocaleString()}` : "—")}
+                      </td>
                       <td className="flag-cell">
                         {result?.isCriticalDropoff && <span className="flag flag-critical" data-testid={`flag-dropoff-${index}`}>Drop &gt;30%</span>}
                         {result?.isDelayed && <span className="flag flag-delay" data-testid={`flag-delay-${index}`}>2x SLA</span>}
+                        {isLastStage && <span className="flag flag-success" data-testid="flag-success">Success</span>}
                       </td>
                     </tr>
                   );
