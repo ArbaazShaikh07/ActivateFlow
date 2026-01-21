@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,7 +6,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 
@@ -14,59 +14,93 @@ from datetime import datetime, timezone
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
 app = FastAPI()
-
-# Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
+class FunnelStage(BaseModel):
+    stage_name: str
+    users: int
+    avg_time_hours: float
+    target_sla_hours: float
+
+
+class FunnelData(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
+    revenue_per_activated_user: float
+    stages: List[FunnelStage]
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
 
-# Add your routes to the router instead of directly to app
+class FunnelDataCreate(BaseModel):
+    revenue_per_activated_user: float
+    stages: List[FunnelStage]
+
+
+class RecoveryAction(BaseModel):
+    action_name: str
+    expected_lift_percent: float
+
+
+class RecoveryRequest(BaseModel):
+    stage_index: int
+    action: RecoveryAction
+    current_users: int
+    revenue_per_activated_user: float
+
+
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "ActivateFlow API"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
+
+@api_router.post("/funnel", response_model=FunnelData)
+async def save_funnel_data(input: FunnelDataCreate):
+    funnel_obj = FunnelData(**input.model_dump())
     
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
+    doc = funnel_obj.model_dump()
     doc['timestamp'] = doc['timestamp'].isoformat()
     
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
+    _ = await db.funnel_data.insert_one(doc)
+    return funnel_obj
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
 
-# Include the router in the main app
+@api_router.get("/funnel/latest", response_model=Optional[FunnelData])
+async def get_latest_funnel():
+    funnel = await db.funnel_data.find_one(
+        {},
+        {"_id": 0},
+        sort=[("timestamp", -1)]
+    )
+    
+    if not funnel:
+        return None
+    
+    if isinstance(funnel['timestamp'], str):
+        funnel['timestamp'] = datetime.fromisoformat(funnel['timestamp'])
+    
+    return funnel
+
+
+@api_router.post("/recovery/calculate")
+async def calculate_recovery(request: RecoveryRequest):
+    lift_decimal = request.action.expected_lift_percent / 100
+    recovered_users = int(request.current_users * lift_decimal)
+    revenue_recovered = recovered_users * request.revenue_per_activated_user
+    
+    return {
+        "recovered_users": recovered_users,
+        "revenue_recovered": round(revenue_recovered, 2),
+        "new_conversion_rate": round((request.current_users + recovered_users) / request.current_users * 100, 2) if request.current_users > 0 else 0
+    }
+
+
 app.include_router(api_router)
 
 app.add_middleware(
@@ -77,7 +111,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
